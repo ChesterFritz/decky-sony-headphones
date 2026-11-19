@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Installs the built plugin into Decky Loader. Run with: sudo ./install.sh
+# Installs the packaged plugin (out/sony-headphones.zip) into Decky Loader.
+# Run ./scripts/package.sh first, then: sudo ./install.sh
 set -euo pipefail
 src="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+zip="$src/out/sony-headphones.zip"
 dest="/home/deck/homebrew/plugins/sony-headphones"
 [ "$(id -u)" -eq 0 ] || { echo "Run with sudo: sudo $0" >&2; exit 1; }
-[ -f "$src/dist/index.js" ] || { echo "dist/index.js missing; build first" >&2; exit 1; }
+[ -f "$zip" ] || { echo "$zip missing; run ./scripts/package.sh first" >&2; exit 1; }
+stage="$(mktemp -d)"; trap 'rm -rf -- "$stage"' EXIT
+python3 -I -m zipfile -e "$zip" "$stage"
 rm -rf -- "$dest"
-install -d "$dest/dist"
-install -m 644 "$src/plugin.json" "$src/package.json" "$src/main.py" "$dest/"
-install -m 644 "$src/dist/index.js" "$dest/dist/"
+cp -r -- "$stage/sony-headphones" "$dest"
+chmod -R u=rwX,go=rX -- "$dest"
+chmod 755 -- "$dest/bin/sony-headphonesd"
 systemctl restart plugin_loader
 echo "Installed to $dest and restarted Decky Loader."

@@ -1,35 +1,43 @@
-# Sony Headphones for Decky Loader (Steam Deck)
+# Sony Headphones: Decky plugin
 
-A [Decky Loader](https://decky.xyz) Quick Access panel for `sony-headphonesd`. You can control
-noise cancelling, ambient sound, focus-on-voice, speak-to-chat, DSEE, EQ presets, connection and
-volume, and see battery levels, all from Game Mode.
+This folder is the Decky Loader plugin. For installing and using it on a Steam Deck, see the [main README](../README.md).
 
-## Requirements
+## Layout
 
-- Decky Loader installed on the Steam Deck.
-- `sony-headphonesd` from this repository, built and running as a `systemd --user` service on the
-  Deck (see the top-level README and `docs/DEVELOPMENT.md`). The plugin talks to the daemon's
-  socket at `$XDG_RUNTIME_DIR/sony-headphones/daemon.sock` and reads
-  `~/.local/state/sony-headphones/status.json`.
+| Path | What it is |
+| --- | --- |
+| `src/index.tsx` | Quick Access panel (React, `@decky/ui`). Polls status once a second while it's visible. |
+| `main.py` | Backend. Talks to `sony-headphonesd` over its socket and supervises the bundled daemon. |
+| `plugin.json`, `package.json` | Decky metadata and the frontend build. |
+| `scripts/package.sh` | Builds `out/sony-headphones.zip`, with the daemon in `bin/` and licences in `licenses/`. |
+| `install.sh` | Installs `out/sony-headphones.zip` into `~/homebrew/plugins` and restarts Decky (`sudo`). |
 
-## Install from a release
+## Backend behaviour
 
-1. Download `sony-headphones.zip` from the Releases page of this fork.
-2. In Decky, open Settings, then Developer, and turn on Developer mode. Choose **Install Plugin
-   from ZIP** and pick the file.
+- **Status and commands:** both go over the daemon socket, `$XDG_RUNTIME_DIR/sony-headphones/daemon.sock`, which falls back to `/run/user/<uid>`. Status is fetched with the daemon's `status` command, not from `status.json`, which a crashed daemon leaves behind.
+- **Command allow-list:** only the panel's verbs are forwarded, and each argument has to be a single safe word.
+- **Bundled daemon:**
+  - If nothing answers on the socket, the backend copies `bin/sony-headphonesd` to `$DECKY_PLUGIN_RUNTIME_DIR/bin/`, marks it executable and runs it. Plugin files are root-owned, and Decky's zip install drops the executable bit, which is why it's copied.
+  - It restarts the daemon with a growing delay if it exits, and stops only its own daemon on unload.
+  - An already-running daemon, such as the user's `sony-headphones.service`, is used and never replaced.
+  - The daemon's output goes to `$DECKY_PLUGIN_LOG_DIR/sony-headphonesd.log`.
+- **Panel session:** the panel sends `panel-open` while visible and `panel-close` when hidden or unloaded. This keeps the on-demand RFCOMM policy, so Sony's phone app can reconnect.
 
-## Build from source
+## Build and package
+
+Build in the Arch distrobox (see the main README), then:
 
 ```sh
-cd decky
-pnpm install
-pnpm build            # writes dist/index.js
-./scripts/package.sh  # writes out/sony-headphones.zip
-sudo ./install.sh     # or install the built plugin directly into ~/homebrew/plugins
+../scripts/build.sh           # daemon, from the repository root's scripts
+pnpm install && pnpm build    # dist/index.js
+./scripts/package.sh          # out/sony-headphones.zip
+sudo ./install.sh             # on the Deck, outside the distrobox
 ```
 
-## Notes
+Set `SONY_DAEMON=/path/to/sony-headphonesd` to package a different daemon build.
 
-- The backend is a small Python bridge, because Decky requires one. It has no root flag. It only
-  forwards an allow-listed set of daemon commands, and it closes the control session when it
-  unloads so Sony's phone app can reconnect.
+## Releasing
+
+1. Bump `version` in `package.json` and add an entry to `../CHANGELOG.md`.
+2. Rebuild and package as above. Don't commit `dist/` or `out/`, which are ignored.
+3. Create a GitHub release tagged `decky-vX.Y.Z` and attach `out/sony-headphones.zip`.

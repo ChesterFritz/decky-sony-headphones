@@ -7,6 +7,11 @@ All notable changes will be documented here. The format follows Keep a Changelog
 ### Added
 
 - Add a Decky Loader plugin (`decky/`) that gives Steam Deck Game Mode a Quick Access panel for `sony-headphonesd`.
+- Bundle a prebuilt `sony-headphonesd` in the Decky release zip. The plugin runs it when no daemon is already running, so a release installs without building anything.
+
+### Changed
+
+- Rewrite the README for Steam Deck deployment.
 
 ## [0.2.3] - 2026-08-21
 

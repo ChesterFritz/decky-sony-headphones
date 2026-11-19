@@ -1,74 +1,60 @@
-# Sony Headphones for Linux
+# Sony Headphones for Steam Deck
 
-A native Linux service and command-line controller for Sony headphones that use the Sony | Sound Connect protocol. It publishes live state as JSON and accepts commands through a private Unix socket, so it can be used by any desktop, status bar, script, or automation tool. An optional Omarchy Quattro widget provides a graphical frontend.
+Control Sony headphones from the Steam Deck's Quick Access menu, in Game Mode. This is a [Decky Loader](https://decky.xyz) plugin built on the native `sony-headphonesd` service from [sony-headphones-linux](https://github.com/VyomJain6904/sony-headphones-linux) by Vyom Jain.
 
-> **Hardware alpha:** the complete control path is tested on a WH-1000XM5 running firmware 2.5.1 over MDR v2. Other models may work when they report supported protocol capabilities, but they are not claimed as tested. See the [compatibility matrix](docs/COMPATIBILITY.md).
+The release zip includes everything: the panel, a small backend and a prebuilt daemon. You don't need to compile anything or use a terminal.
 
-| Omarchy dark theme | Omarchy light theme |
-| --- | --- |
-| ![Sony Headphones panel using a dark theme](docs/screenshots/panel-dark.png) | ![Sony Headphones panel using a light theme](docs/screenshots/panel-light.png) |
+> **Hardware alpha:** tested on a WH-1000XM5 (firmware 2.5.1, MDR v2) with a Steam Deck on SteamOS 3.9.5. Other models supported by Sony | Sound Connect may work when they report the needed capabilities, but they aren't claimed as tested. See the [compatibility matrix](docs/COMPATIBILITY.md).
 
 ## Features
 
-- Main, left, right, and case battery levels when reported by the device
-- Noise cancellation, ambient sound level, and focus on voice
-- Speak-to-Chat, DSEE, writable equalizer presets, and connection priority
-- Headphone volume normalized to `0–100`
-- Capability-gated controls: unsupported features are not displayed
-- On-demand RFCOMM control so Sony's phone app can reconnect after the panel closes
-- Live Omarchy colors, spacing, controls, and dark/light theme changes
+- Battery levels: main, left/right and case, depending on what the headphones report
+- Bluetooth codec in use (SBC, AAC, LDAC and others)
+- Noise control: Off, Noise cancelling or Ambient sound, with the ambient level and Focus on Voice
+- Speak-to-Chat, DSEE, equalizer presets and headphone volume
+- Connection priority: Sound quality or Stable connection
+- Controls appear only when your headphones report they support them
+- The control channel is released when you close the panel, so Sony's phone app can reconnect
 
-The panel intentionally omits playback controls. Playback commands remain in the version-1 CLI schema for compatibility.
+## Install
 
-## Install on Arch or Omarchy
+1. Install [Decky Loader](https://decky.xyz) if you don't have it yet.
+2. Download **`sony-headphones.zip`** from the [latest release](https://github.com/ChesterFritz/decky-sony-headphones/releases/latest).
+3. In Game Mode, open the Quick Access menu → **Decky** → **Settings** (gear icon) → **Developer**. Turn on **Developer mode**.
+4. Choose **Install Plugin from ZIP** and select the downloaded file.
+5. Pair and connect your headphones in **Settings → Bluetooth**.
+6. Open the Quick Access menu → **Sony Headphones**. The first time, keep the panel open for a few seconds while the control channel connects.
 
-The AUR package owns only the native daemon, CLI, user service, documentation, and licenses. Omarchy owns the optional QML plugin checkout.
+## Update and uninstall
 
-Install the native companion from the AUR:
+- **Update:** install the newer `sony-headphones.zip` the same way. It replaces the old version.
+- **Uninstall:** in Decky's plugin list, open the menu next to **Sony Headphones** and choose **Uninstall**. To also delete the leftover data:
+
+  ```sh
+  rm -r ~/homebrew/data/sony-headphones ~/.local/state/sony-headphones
+  ```
+
+## How it works
+
+The plugin's backend talks to `sony-headphonesd` through its private socket at `/run/user/1000/sony-headphones/daemon.sock`.
+
+- If a daemon is already running (for example the systemd service described below), the plugin uses that one.
+- Otherwise it starts the daemon bundled in the zip and keeps it running while Decky is loaded. It restarts the daemon if it exits, and stops it when the plugin unloads.
+- The bundled daemon is copied to `~/homebrew/data/sony-headphones/bin/` and runs from there.
+- Everything runs as the `deck` user. Nothing needs root after Decky's normal plugin install.
+
+## Optional: use it in Desktop Mode too
+
+The bundled daemon runs only while Decky is running, which is always the case in Game Mode. To also use the daemon from Desktop Mode, for scripts or the `sony-headphonesctl` command, install it as a user service. The plugin detects the running service and uses it instead of its own copy.
+
+Build it as described in [Build from source](#build-from-source), then run these on the Deck, outside the distrobox:
 
 ```sh
-yay -S sony-headphones-linux
-systemctl --user enable --now sony-headphones.service
-```
-
-Install the optional Omarchy widget separately:
-
-```sh
-omarchy plugin add https://github.com/VyomJain6904/sony-headphones-linux.git
-omarchy plugin enable io.github.vyomjain6904.sony-headphones --section right
-```
-
-Confirm the native service is healthy:
-
-```sh
-systemctl --user status sony-headphones.service
-sony-headphonesctl status
-```
-
-The AUR package is a source build. `makepkg` verifies checksums for the application, libmdr, and fmt sources before building, and CMake is disconnected from dependency downloads during compilation.
-
-## Install from source
-
-Install the build dependencies listed in [Development](docs/DEVELOPMENT.md), then run:
-
-```sh
-git clone https://github.com/VyomJain6904/sony-headphones-linux.git
-cd sony-headphones-linux
-./scripts/build.sh
 ./scripts/install.sh
 systemctl --user enable --now sony-headphones.service
 ```
 
-`install.sh` writes only to `~/.local/bin` and `~/.config/systemd/user`. It does not install or enable the Omarchy widget. Before writing, it rejects unrelated, modified, linked, or foreign-checkout destinations and records the installed hashes in a private checkout-bound receipt.
-
-For a deterministic build without Bluetooth/libmdr:
-
-```sh
-./scripts/build.sh --without-libmdr
-./build/native/sony-headphonesd --mock
-```
-
-## Use the CLI
+`install.sh` writes only to `~/.local/bin` and `~/.config/systemd/user`. The CLI then works from Konsole:
 
 ```text
 sony-headphonesctl status
@@ -82,86 +68,58 @@ sony-headphonesctl connection quality|stable
 sony-headphonesctl volume 0..100
 ```
 
-The daemon atomically publishes state at:
+## Troubleshooting
 
-```text
-${XDG_STATE_HOME:-$HOME/.local/state}/sony-headphones/status.json
-```
+- **"Waiting for service" or "sony-headphonesd is not running":** the backend retries automatically, so wait a few seconds. If it persists, check the logs in `~/homebrew/logs/sony-headphones/`, where `sony-headphonesd.log` holds the daemon's own output.
+- **"Headphones are not synchronized yet":** the headphones are connected, but the control channel is still starting. Keep the panel open for a few seconds.
+- **Controls never appear:** make sure the headphones are connected in **Settings → Bluetooth**, and that Sony's phone app isn't holding the control connection. Close the app or turn off Bluetooth on the phone.
+- **The daemon fails with `GLIBC ... not found`:** a SteamOS update or a build from a different container doesn't match the bundled binary. Rebuild it as described below, or install a newer release.
 
-See the [integration guide](docs/INTEGRATION.md) for Waybar, Polybar, eww, AGS, i3status-rust, Conky, KDE Plasma, GNOME Shell, keybindings, and custom Quickshell configurations.
+## Build from source
 
-## Update
+SteamOS's system files are read-only and it has no build tools, so build inside an **Arch Linux** [distrobox](https://github.com/89luca89/distrobox). This is the setup the releases are made with. Distrobox shares your home folder, so the build ends up on the Deck itself.
 
-Update AUR and Omarchy components independently:
-
-```sh
-yay -Syu sony-headphones-linux
-systemctl --user restart sony-headphones.service
-omarchy plugin update io.github.vyomjain6904.sony-headphones
-```
-
-For a receipt-backed source installation, pull the repository, rebuild, reinstall, and restart the service:
+Inside the distrobox, install the dependencies from [Development](docs/DEVELOPMENT.md), along with Node.js and `pnpm` for the panel, then run:
 
 ```sh
-git pull --ff-only
-./scripts/build.sh
-./scripts/install.sh
-systemctl --user restart sony-headphones.service
+git clone https://github.com/ChesterFritz/decky-sony-headphones.git
+cd decky-sony-headphones
+./scripts/build.sh            # the daemon: build/native/sony-headphonesd
+
+cd decky
+pnpm install
+pnpm build                    # the panel: dist/index.js
+./scripts/package.sh          # the release zip: out/sony-headphones.zip
 ```
 
-Existing v0.2.2 source installs predate ownership receipts. Immediately after the first `git pull`, run `./scripts/install.sh` once **before rebuilding**; it adopts the old installation only when all three files are byte-identical to the existing build. Then use the normal build/install sequence above. A conflict stops without changing files or the service; inspect, back up, and resolve that path manually rather than forcing installation.
-
-## Uninstall
-
-For an AUR installation:
+Then, on the Deck outside the distrobox, install your build into Decky:
 
 ```sh
-systemctl --user disable --now sony-headphones.service
-yay -Rns sony-headphones-linux
-omarchy plugin remove io.github.vyomjain6904.sony-headphones
+sudo ./install.sh             # run from the decky/ folder
 ```
 
-For a source installation, run the tracked uninstaller from its checkout:
-
-```sh
-./scripts/uninstall.sh
-omarchy plugin remove io.github.vyomjain6904.sony-headphones
-```
-
-The source uninstaller validates the receipt and every recorded hash before disabling the service. It removes only unchanged artifacts installed by the same checkout; a missing receipt, symlink, unrelated file, or modified owned file stops removal. The native uninstaller and package removal preserve private state. Delete it only when the last status and error information is no longer wanted:
-
-```sh
-rm -r -- "$HOME/.local/state/sony-headphones"
-```
-
-The Omarchy command is optional in every removal path and should be omitted when the widget was not installed.
-
-## Dependencies
-
-Runtime:
-
-- Linux, BlueZ, D-Bus, and `libbluetooth`
-- Omarchy Quattro/Quickshell only for the optional widget
-
-Full source builds require CMake 3.31 or newer, a C++20 compiler, Git, `pkg-config`, `jq`, D-Bus and BlueZ development headers, and Node.js for the JavaScript model test. The runtime contains no Python, Electron, telemetry, or network client.
+`package.sh` refuses to package a daemon that links libraries missing on the system it runs on. See [decky/README.md](decky/README.md) for plugin development details.
 
 ## Safety and limitations
 
-The daemon and CLI run as an unprivileged user. Their state and socket directories are private, and the public state omits the Bluetooth address. Installing an AUR package uses the normal package-manager privileges required to write under `/usr`; the running service itself does not require root, setuid, or a broad D-Bus policy.
+The daemon runs as an unprivileged user. Its state and socket directories are private, and the public state omits the Bluetooth address. The plugin backend only forwards an allow-listed set of commands to the daemon.
 
-The project does not implement firmware flashing, 360 Reality Audio, Sony account/cloud functions, location tracking, factory reset, or a second Quickshell process. Read [SECURITY.md](SECURITY.md) before using real-device write commands.
+The project doesn't implement firmware flashing, 360 Reality Audio, Sony account or cloud functions, location tracking, or factory reset. Read [SECURITY.md](SECURITY.md) before using real-device write commands.
+
+## Other Linux desktops
+
+This fork focuses on the Steam Deck. For Arch, Omarchy (including its Quattro bar widget) and other desktops, see the upstream project, [sony-headphones-linux](https://github.com/VyomJain6904/sony-headphones-linux). Its [integration guide](docs/INTEGRATION.md) covers Waybar, Polybar, KDE Plasma, GNOME Shell and more.
 
 ## Documentation
 
 - [Compatibility evidence](docs/COMPATIBILITY.md)
 - [Development and testing](docs/DEVELOPMENT.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [Integration examples](docs/INTEGRATION.md)
-- [Verification record](docs/VERIFICATION.md)
-- [Publishing guide](docs/PUBLISHING.md)
 - [Public specification](SPEC.md)
 - [Third-party sources and licenses](THIRD_PARTY.md)
 
 ## License and affiliation
 
-MIT licensed. This project is independent, unofficial, and is not affiliated with or endorsed by Sony. Sony, Sony | Sound Connect, and product names are trademarks of their respective owners.
+MIT licensed. The daemon is from [sony-headphones-linux](https://github.com/VyomJain6904/sony-headphones-linux) by Vyom Jain, and it bundles [libmdr](https://github.com/mos9527/SonyHeadphonesClient) and [fmt](https://github.com/fmtlib/fmt), both MIT. Their licences are included in the release zip under `licenses/`.
+
+This project is independent and unofficial, and is not affiliated with or endorsed by Sony or Valve. Sony, Sony | Sound Connect, Steam and Steam Deck are trademarks of their respective owners.
