@@ -19,7 +19,7 @@ The release zip includes everything: the panel, a small backend and a prebuilt d
 ## Install
 
 1. Install [Decky Loader](https://decky.xyz) if you don't have it yet.
-2. Download **`sony-headphones.zip`** from the [latest release](https://github.com/ChesterFritz/decky-sony-headphones/releases/latest).
+2. Download **`sony-headphones-decky-v<version>.zip`** from the [latest release](https://github.com/ChesterFritz/decky-sony-headphones/releases/latest).
 3. In Game Mode, open the Quick Access menu → **Decky** → **Settings** (gear icon) → **Developer**. Turn on **Developer mode**.
 4. Choose **Install Plugin from ZIP** and select the downloaded file.
 5. Pair and connect your headphones in **Settings → Bluetooth**.
@@ -27,7 +27,7 @@ The release zip includes everything: the panel, a small backend and a prebuilt d
 
 ## Update and uninstall
 
-- **Update:** install the newer `sony-headphones.zip` the same way. It replaces the old version.
+- **Update:** install the newer zip the same way. It replaces the old version.
 - **Uninstall:** in Decky's plugin list, open the menu next to **Sony Headphones** and choose **Uninstall**. To also delete the leftover data:
 
   ```sh
@@ -89,7 +89,7 @@ cd decky-sony-headphones
 cd decky
 pnpm install
 pnpm build                    # the panel: dist/index.js
-./scripts/package.sh          # the release zip: out/sony-headphones.zip
+./scripts/package.sh          # the release zip: out/sony-headphones-decky-v<version>.zip
 ```
 
 Then, on the Deck outside the distrobox, install your build into Decky:

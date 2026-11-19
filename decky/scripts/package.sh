@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds the Decky release zip: out/sony-headphones.zip, with the daemon bundled in bin/.
+# Builds the Decky release zip: out/sony-headphones-decky-v<version>.zip (version from
+# package.json), with the daemon bundled in bin/, plus a .sha256 checksum beside it.
 # Install it via Decky > Settings > Developer > Install Plugin from ZIP.
 #
 # Needs the frontend (pnpm build) and the daemon (../scripts/build.sh, run in an Arch
@@ -9,6 +10,8 @@ dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 repo="$(cd -- "$dir/.." && pwd)"
 daemon="${SONY_DAEMON:-$repo/build/native/sony-headphonesd}"
 cd "$dir"
+version="$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' package.json)"
+zip_name="sony-headphones-decky-v$version.zip"
 [ -f dist/index.js ] || { echo "dist/index.js missing; run 'pnpm install && pnpm build' first" >&2; exit 1; }
 [ -x "$daemon" ] || { echo "$daemon missing; build the daemon with ../scripts/build.sh first" >&2; exit 1; }
 if command -v ldd >/dev/null && ldd "$daemon" | grep -q 'not found'; then
@@ -23,6 +26,7 @@ install -m 644 plugin.json package.json main.py LICENSE README.md "$root/"
 install -m 644 dist/index.js "$root/dist/"
 install -m 755 "$daemon" "$root/bin/sony-headphonesd"
 install -m 644 "$repo/licenses/libmdr-LICENSE" "$repo/licenses/fmt-LICENSE" "$repo/THIRD_PARTY.md" "$root/licenses/"
-rm -f out/sony-headphones.zip
-(cd "$stage" && zip -qr "$dir/out/sony-headphones.zip" sony-headphones)
-echo "Wrote $dir/out/sony-headphones.zip"
+rm -f "out/$zip_name" "out/$zip_name.sha256"
+(cd "$stage" && zip -qr "$dir/out/$zip_name" sony-headphones)
+(cd out && sha256sum "$zip_name" > "$zip_name.sha256")
+echo "Wrote $dir/out/$zip_name"

@@ -9,8 +9,8 @@ This folder is the Decky Loader plugin. For installing and using it on a Steam D
 | `src/index.tsx` | Quick Access panel (React, `@decky/ui`). Polls status once a second while it's visible. |
 | `main.py` | Backend. Talks to `sony-headphonesd` over its socket and supervises the bundled daemon. |
 | `plugin.json`, `package.json` | Decky metadata and the frontend build. |
-| `scripts/package.sh` | Builds `out/sony-headphones.zip`, with the daemon in `bin/` and licences in `licenses/`. |
-| `install.sh` | Installs `out/sony-headphones.zip` into `~/homebrew/plugins` and restarts Decky (`sudo`). |
+| `scripts/package.sh` | Builds `out/sony-headphones-decky-v<version>.zip` (and a `.sha256`), with the daemon in `bin/` and licences in `licenses/`. |
+| `install.sh` | Installs the packaged zip for the current version into `~/homebrew/plugins` and restarts Decky (`sudo`). |
 
 ## Backend behaviour
 
@@ -30,7 +30,7 @@ Build in the Arch distrobox (see the main README), then:
 ```sh
 ../scripts/build.sh           # daemon, from the repository root's scripts
 pnpm install && pnpm build    # dist/index.js
-./scripts/package.sh          # out/sony-headphones.zip
+./scripts/package.sh          # out/sony-headphones-decky-v<version>.zip
 sudo ./install.sh             # on the Deck, outside the distrobox
 ```
 
@@ -40,4 +40,4 @@ Set `SONY_DAEMON=/path/to/sony-headphonesd` to package a different daemon build.
 
 1. Bump `version` in `package.json` and add an entry to `../CHANGELOG.md`.
 2. Rebuild and package as above. Don't commit `dist/` or `out/`, which are ignored.
-3. Create a GitHub release tagged `decky-vX.Y.Z` and attach `out/sony-headphones.zip`.
+3. Create a GitHub release tagged `decky-vX.Y.Z` and attach `out/sony-headphones-decky-vX.Y.Z.zip` and its `.sha256`.
